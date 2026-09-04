@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import os
 import sys
 import tkinter as tk
 from pathlib import Path
@@ -15,6 +16,14 @@ PROJECT_DIR = Path(__file__).resolve().parent
 for site_packages in (PROJECT_DIR / ".venv" / "lib").glob("python*/site-packages"):
     if str(site_packages) not in sys.path:
         sys.path.insert(0, str(site_packages))
+
+if sys.platform == "win32":
+    # CairoSVG uses cairocffi, which loads Cairo dynamically. In a PyInstaller
+    # bundle, point cairocffi to the extracted application directory.
+    bundle_dir = Path(getattr(sys, "_MEIPASS", PROJECT_DIR))
+    os.environ.setdefault("CAIROCFFI_DLL_DIRECTORIES", str(bundle_dir))
+    if hasattr(os, "add_dll_directory"):
+        os.add_dll_directory(str(bundle_dir))
 
 from mermaid_renderer import MermaidRenderer
 

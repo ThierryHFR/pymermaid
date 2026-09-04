@@ -30,15 +30,41 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pyinstaller
 
+      - name: Install Cairo native runtime on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install gtk-runtime --no-progress -y
+          $cairo = Get-ChildItem -Path 'C:\Program Files', 'C:\Program Files (x86)', 'C:\GTK*' -Recurse -Filter libcairo-2.dll -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $cairo) { throw 'libcairo-2.dll was not found after installing GTK Runtime' }
+          "CAIRO_DLL_DIR=$($cairo.DirectoryName)" >> $env:GITHUB_ENV
+
+      - name: Verify Cairo runtime on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python -c "import cairosvg; print('CairoSVG runtime OK')"
+
       - name: Run syntax checks
         run: python -m py_compile mermaid_renderer.py pymermaid.py pymermaid_app.py
 
-      - name: Build application
+      - name: Build application on Unix
+        if: runner.os != 'Windows'
         run: >-
           python -m PyInstaller --clean --noconfirm --onefile --windowed
           --name PyMermaid
           --collect-all cairosvg
           --collect-all cairocffi
+          pymermaid_app.py
+
+      - name: Build application on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          python -m PyInstaller --clean --noconfirm --onefile --windowed
+          --name PyMermaid
+          --collect-all cairosvg
+          --collect-all cairocffi
+          --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
           pymermaid_app.py
 
       - name: Package Windows application
