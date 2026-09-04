@@ -49,3 +49,7 @@ The interface is available in French, English, German, Spanish, and Italian thro
 SVG output can be opened directly in a web browser. PDF and PNG conversion is available through CairoSVG in the virtual environment.
 
 This project is distributed under the GNU GPL v3 license (see `LICENSE`).
+
+## CI packages
+
+Every push, pull request, or manual workflow run builds packages for Linux, Windows, and macOS. Download them from the workflow's **Artifacts** section on GitHub Actions.

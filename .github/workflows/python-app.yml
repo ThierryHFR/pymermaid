@@ -1,1 +1,72 @@
+name: Build PyMermaid packages
 
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Run syntax checks
+        run: python -m py_compile mermaid_renderer.py pymermaid.py pymermaid_app.py
+
+      - name: Build application
+        run: >-
+          python -m PyInstaller --clean --noconfirm --onefile --windowed
+          --name PyMermaid
+          --collect-all cairosvg
+          --collect-all cairocffi
+          pymermaid_app.py
+
+      - name: Package Windows application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Compress-Archive -Path dist/PyMermaid.exe -DestinationPath "package/PyMermaid-Windows-x64.zip"
+
+      - name: Package Linux application
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p package
+          tar -czf package/PyMermaid-Linux-x64.tar.gz -C dist PyMermaid
+
+      - name: Package macOS application
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p package
+          ditto -c -k --sequesterRsrc --keepParent \
+            dist/PyMermaid \
+            package/PyMermaid-macOS-x64.zip
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: PyMermaid-${{ runner.os }}
+          path: package/*
+          if-no-files-found: error
