@@ -32,14 +32,25 @@ jobs:
 
       - name: Install Cairo native runtime on Windows
         if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-cairo
+
+      - name: Configure Cairo runtime on Windows
+        if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
         run: |
-          choco install gtk-runtime --no-progress -y
-          $cairo = Get-ChildItem -Path 'C:\Program Files', 'C:\Program Files (x86)', 'C:\GTK*' -Recurse -Filter libcairo-2.dll -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($null -eq $cairo) { throw 'libcairo-2.dll was not found after installing GTK Runtime' }
-          "CAIRO_DLL_DIR=$($cairo.DirectoryName)" >> $env:GITHUB_ENV
-          $cairo.DirectoryName >> $env:GITHUB_PATH
-          $env:Path = "$($cairo.DirectoryName);$env:Path"
+          $cairoDir = Join-Path $env:MSYS2_LOCATION 'ucrt64\bin'
+          $cairo = Join-Path $cairoDir 'libcairo-2.dll'
+          if (-not (Test-Path $cairo)) { throw "libcairo-2.dll was not found in $cairoDir" }
+          "CAIRO_DLL_DIR=$cairoDir" >> $env:GITHUB_ENV
+          $cairoDir >> $env:GITHUB_PATH
+          $env:Path = "$cairoDir;$env:Path"
 
       - name: Verify Cairo runtime on Windows
         if: runner.os == 'Windows'
