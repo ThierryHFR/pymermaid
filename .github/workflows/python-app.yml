@@ -30,6 +30,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pyinstaller
 
+      - name: Record Python executable on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "PYTHON_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" >> $env:GITHUB_ENV
+
       - name: Install Cairo native runtime on Windows
         if: runner.os == 'Windows'
         id: msys2
@@ -55,10 +61,16 @@ jobs:
       - name: Verify Cairo runtime on Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: python -c "import cairosvg; print('CairoSVG runtime OK')"
+        run: '& $env:PYTHON_EXECUTABLE -c "import cairosvg; print(''CairoSVG runtime OK'')"'
 
       - name: Run syntax checks
+        if: runner.os != 'Windows'
         run: python -m py_compile mermaid_renderer.py pymermaid.py pymermaid_app.py
+
+      - name: Run syntax checks on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& $env:PYTHON_EXECUTABLE -m py_compile mermaid_renderer.py pymermaid.py pymermaid_app.py'
 
       - name: Build application on Unix
         if: runner.os != 'Windows'
@@ -73,7 +85,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: >-
-          python -m PyInstaller --clean --noconfirm --onefile --windowed
+          & $env:PYTHON_EXECUTABLE -m PyInstaller --clean --noconfirm --onefile --windowed
           --name PyMermaid
           --collect-all cairosvg
           --collect-all cairocffi
