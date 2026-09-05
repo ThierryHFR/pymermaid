@@ -58,6 +58,19 @@ jobs:
           $cairoDir >> $env:GITHUB_PATH
           $env:Path = "$cairoDir;$env:Path"
 
+      - name: Install Graphviz runtime on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install graphviz --no-progress -y
+          $dot = Get-ChildItem -Path 'C:\Program Files\Graphviz', 'C:\Program Files (x86)\Graphviz' -Recurse -Filter dot.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $dot) { throw 'dot.exe was not found after installing Graphviz' }
+          $graphvizRoot = $dot.Directory.Parent.FullName
+          "GRAPHVIZ_BIN=$($dot.DirectoryName)" >> $env:GITHUB_ENV
+          "GRAPHVIZ_ROOT=$graphvizRoot" >> $env:GITHUB_ENV
+          $dot.DirectoryName >> $env:GITHUB_PATH
+          $env:Path = "$($dot.DirectoryName);$env:Path"
+
       - name: Verify Cairo runtime on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -90,6 +103,10 @@ jobs:
           --collect-all cairosvg
           --collect-all cairocffi
           --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
+          --add-binary "$env:GRAPHVIZ_BIN\dot.exe;graphviz"
+          --add-binary "$env:GRAPHVIZ_BIN\*.dll;graphviz"
+          --add-data "$env:GRAPHVIZ_ROOT\lib\graphviz;graphviz\lib\graphviz"
+          --add-data "$env:GRAPHVIZ_ROOT\share\graphviz;graphviz\share\graphviz"
           pymermaid_app.py
 
       - name: Package Windows application

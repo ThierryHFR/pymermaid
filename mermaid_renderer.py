@@ -10,10 +10,13 @@ The main API is MermaidRenderer.render(source) -> str (SVG).
 from __future__ import annotations
 
 import html
+import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterable
 
 
@@ -75,12 +78,22 @@ class MermaidRenderer:
         if kind in {"flowchart", "graph"}:
             # Graphviz provides improved layout when installed. The Python
             # renderer remains available as a dependency-free fallback.
-            if shutil.which("dot"):
+            if self._graphviz_executable():
                 return self._render_flowchart_graphviz(lines)
             return self._render_flowchart(lines)
         if kind == "sequencediagram":
             return self._render_sequence(lines)
         raise ValueError(f"Unsupported Mermaid diagram type: {kind}")
+
+    @staticmethod
+    def _graphviz_executable() -> str | None:
+        """Return system or PyInstaller-bundled Graphviz's dot executable."""
+        system_dot = shutil.which("dot")
+        if system_dot:
+            return system_dot
+        bundle_dir = Path(getattr(sys, "_MEIPASS", ""))
+        bundled_dot = bundle_dir / "graphviz" / ("dot.exe" if sys.platform == "win32" else "dot")
+        return str(bundled_dot) if bundled_dot.is_file() else None
 
     def render_file(self, input_path: str, output_path: str) -> None:
         with open(input_path, encoding="utf-8") as stream:
@@ -199,7 +212,15 @@ class MermaidRenderer:
             if not edge.arrow: attrs.append('dir=none')
             dot.append(f'  "{self._dot_quote(edge.source)}" -> "{self._dot_quote(edge.target)}" [{", ".join(attrs)}];')
         dot.append("}")
-        result = subprocess.run(["dot", "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True)
+        executable = self._graphviz_executable()
+        if executable is None:
+            raise RuntimeError("Graphviz dot executable is unavailable")
+        environment = os.environ.copy()
+        if getattr(sys, "_MEIPASS", None):
+            bundle_dir = Path(sys._MEIPASS) / "graphviz"
+            environment["PATH"] = f"{bundle_dir}{os.pathsep}{environment.get('PATH', '')}"
+            environment["GVBINDIR"] = str(bundle_dir / "lib" / "graphviz")
+        result = subprocess.run([executable, "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True, env=environment)
         return result.stdout
 
     @staticmethod
