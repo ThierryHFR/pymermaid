@@ -256,7 +256,15 @@ class MermaidRenderer:
         # extracted below _MEIPASS instead of installed system-wide.
         if getattr(sys, "_MEIPASS", None) and graphviz_dir.name.lower() == "graphviz":
             environment["GVBINDIR"] = str(graphviz_dir / "lib" / "graphviz")
-        result = subprocess.run([executable, "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True, env=environment)
+            environment["GVDATADIR"] = str(graphviz_dir / "share" / "graphviz")
+        try:
+            result = subprocess.run([executable, "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True, env=environment)
+        except subprocess.CalledProcessError as exc:
+            details = (exc.stderr or exc.stdout or "").strip()
+            message = f"Graphviz dot failed with exit code {exc.returncode}"
+            if details:
+                message += f": {details}"
+            raise RuntimeError(message) from exc
         return result.stdout
 
     @staticmethod
