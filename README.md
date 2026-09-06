@@ -54,4 +54,6 @@ This project is distributed under the GNU GPL v3 license (see `LICENSE`).
 
 ## CI packages
 
+The Linux artifact includes both `PyMermaid-Linux-x64.tar.gz` and a native `PyMermaid-Debian-Ubuntu-amd64.deb` package. The Debian package targets amd64 and declares Graphviz and the required graphical libraries as dependencies.
+
 Every push, pull request, or manual workflow run builds packages for Linux, Windows, and macOS. Download them from the workflow's **Artifacts** section on GitHub Actions.

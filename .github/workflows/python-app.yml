@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-latest, macos-latest]
 
     steps:
       - name: Check out repository
@@ -178,6 +178,29 @@ jobs:
         run: |
           mkdir -p package
           tar -czf package/PyMermaid-Linux-x64.tar.gz -C dist PyMermaid
+          mkdir -p deb/DEBIAN deb/usr/lib/pymermaid deb/usr/share/applications
+          install -m 0755 dist/PyMermaid deb/usr/lib/pymermaid/PyMermaid
+          cat > deb/DEBIAN/control <<'EOF'
+          Package: pymermaid
+          Version: 1.0.0
+          Section: graphics
+          Priority: optional
+          Architecture: amd64
+          Depends: libc6, libcairo2, libfontconfig1, libfreetype6, libx11-6, libxext6, libxfixes3, libxi6, libxrender1, libxrandr2, graphviz
+          Maintainer: ThierryHFR
+          Description: PyMermaid flowchart editor
+           Desktop editor for rendering Mermaid flowcharts and sequence diagrams.
+          EOF
+          cat > deb/usr/share/applications/pymermaid.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=PyMermaid
+          Comment=Mermaid diagram editor
+          Exec=/usr/lib/pymermaid/PyMermaid
+          Terminal=false
+          Categories=Graphics;Development;
+          EOF
+          dpkg-deb --build --root-owner-group deb package/PyMermaid-Debian-Ubuntu-amd64.deb
 
       - name: Package macOS application
         if: runner.os == 'macOS'
