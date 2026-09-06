@@ -127,10 +127,11 @@ jobs:
           --collect-all cairocffi
           --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
           --add-binary "$env:GRAPHVIZ_STAGE\*;graphviz"
-          --add-data "$env:PYTHON_TCL;_tcl_data"
-          --add-data "$env:PYTHON_TK;_tk_data"
+          --add-data "$env:PYTHON_TCL;python_tcl"
+          --add-data "$env:PYTHON_TK;python_tk"
           --add-data "$env:GRAPHVIZ_ROOT\lib\graphviz;graphviz\lib\graphviz"
           --add-data "$env:GRAPHVIZ_ROOT\share\graphviz;graphviz\share\graphviz"
+          --runtime-hook pymermaid_tk_runtime.py
           pymermaid_app.py
 
       - name: Package Windows application
