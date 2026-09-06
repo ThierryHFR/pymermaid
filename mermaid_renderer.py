@@ -251,14 +251,15 @@ class MermaidRenderer:
         environment = os.environ.copy()
         executable_path = Path(executable).resolve()
         graphviz_dir = executable_path.parent
-        plugin_dir = graphviz_dir / "lib" / "graphviz"
+        bundled_graphviz = bool(getattr(sys, "_MEIPASS", None)) and graphviz_dir.name.lower() == "graphviz"
+        plugin_dir = graphviz_dir if bundled_graphviz else graphviz_dir / "lib" / "graphviz"
         environment["PATH"] = os.pathsep.join(
             str(path) for path in (graphviz_dir, plugin_dir, environment.get("PATH", "")) if path
         )
         # Graphviz looks for its rendering plugins through GVBINDIR.  This is
         # required for the one-file Windows build, where the runtime is
         # extracted below _MEIPASS instead of installed system-wide.
-        if getattr(sys, "_MEIPASS", None) and graphviz_dir.name.lower() == "graphviz":
+        if bundled_graphviz:
             environment["GVBINDIR"] = str(plugin_dir)
             environment["GVDATADIR"] = str(graphviz_dir / "share" / "graphviz")
         try:

@@ -97,6 +97,17 @@ jobs:
           Get-ChildItem (Join-Path $env:GRAPHVIZ_BIN '*.dll') |
             Where-Object { $_.Name -notmatch '^(tcl|tk)\d' } |
             Copy-Item -Destination $graphvizStage
+          # Keep Graphviz plugins beside dot.exe. This is more reliable than
+          # preserving the installed lib/graphviz hierarchy after relocation
+          # into PyInstaller's one-file extraction directory.
+          Get-ChildItem (Join-Path $env:GRAPHVIZ_ROOT 'lib\graphviz\*.dll') |
+            Where-Object { $_.Name -notmatch '^(tcl|tk)\d' } |
+            Copy-Item -Destination $graphvizStage
+          $env:Path = "$graphvizStage;$env:Path"
+          & (Join-Path $graphvizStage 'dot.exe') -c
+          if ($LASTEXITCODE -ne 0) { throw 'Bundled Graphviz plugin registration failed' }
+          $svgProbe = "digraph { a -> b }" | & (Join-Path $graphvizStage 'dot.exe') -Tsvg 2>&1
+          if ($LASTEXITCODE -ne 0 -or -not ($svgProbe -match '<svg')) { throw 'Bundled Graphviz SVG probe failed' }
           "GRAPHVIZ_STAGE=$graphvizStage" >> $env:GITHUB_ENV
 
       - name: Prepare Cairo runtime for PyInstaller
@@ -150,7 +161,6 @@ jobs:
           --add-binary "$env:GRAPHVIZ_STAGE\*;graphviz"
           --add-data "$env:PYTHON_TCL;python_tcl"
           --add-data "$env:PYTHON_TK;python_tk"
-          --add-data "$env:GRAPHVIZ_ROOT\lib\graphviz;graphviz\lib\graphviz"
           --add-data "$env:GRAPHVIZ_ROOT\share\graphviz;graphviz\share\graphviz"
           --runtime-hook pymermaid_tk_runtime.py
           pymermaid_app.py
