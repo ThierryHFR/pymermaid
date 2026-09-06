@@ -69,6 +69,7 @@ class MermaidRenderer:
 
     def __init__(self, *, font_family: str = "Arial, sans-serif") -> None:
         self.font_family = font_family
+        self._graphviz_plugins_ready = False
 
     def render(self, source: str) -> str:
         lines = [line.strip() for line in source.splitlines() if line.strip() and not line.strip().startswith("%%")]
@@ -261,6 +262,18 @@ class MermaidRenderer:
             environment["GVBINDIR"] = str(plugin_dir)
             environment["GVDATADIR"] = str(graphviz_dir / "share" / "graphviz")
         try:
+            # A relocated Graphviz bundle may not contain the machine-specific
+            # plugin registry (config6). Generate it in PyInstaller's writable
+            # extraction directory before asking dot for SVG output.
+            if environment.get("GVBINDIR") and not self._graphviz_plugins_ready:
+                subprocess.run(
+                    [executable, "-c"],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                    env=environment,
+                )
+                self._graphviz_plugins_ready = True
             result = subprocess.run([executable, "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True, env=environment)
         except subprocess.CalledProcessError as exc:
             details = (exc.stderr or exc.stdout or "").strip()
