@@ -1,6 +1,6 @@
 # PyMermaid
 
-A small Mermaid rendering engine written in Python. It generates SVG files and currently supports `flowchart`/`graph` and `sequenceDiagram`. If Graphviz (`dot`) is installed, it is automatically used for improved graph layout; otherwise, a Python fallback renderer is used.
+A small Mermaid rendering engine written in Python. It generates SVG files and currently supports `flowchart`/`graph` and `sequenceDiagram`. Flowcharts use Graphviz (`dot`) when available; the Windows package includes its own Graphviz runtime so its layout stays consistent with Linux and macOS packages. If Graphviz is unavailable, a Python fallback renderer is used.
 
 Install the PDF and preview dependencies:
 
@@ -47,6 +47,8 @@ The application lets you open or enter a diagram, displays a live preview after 
 The interface is available in French, English, German, Spanish, and Italian through the `Language` menu.
 
 SVG output can be opened directly in a web browser. PDF and PNG conversion is available through CairoSVG in the virtual environment.
+
+For a source launch on Windows, install Graphviz or set `GRAPHVIZ_BIN` to the directory containing `dot.exe`. The packaged application discovers its bundled executable automatically.
 
 This project is distributed under the GNU GPL v3 license (see `LICENSE`).
 

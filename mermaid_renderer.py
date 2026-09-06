@@ -87,13 +87,45 @@ class MermaidRenderer:
 
     @staticmethod
     def _graphviz_executable() -> str | None:
-        """Return system or PyInstaller-bundled Graphviz's dot executable."""
-        system_dot = shutil.which("dot")
+        """Return the most portable Graphviz ``dot`` executable available.
+
+        The packaged application carries its own Graphviz runtime.  It must be
+        preferred over a system installation: otherwise the layout can change
+        between machines (or Windows can silently fall back to the small
+        Python layout when ``dot.exe`` is not on PATH).
+        """
+        executable_name = "dot.exe" if sys.platform == "win32" else "dot"
+        candidates: list[Path] = []
+
+        # PyInstaller's temporary extraction directory.
+        bundle_dir = getattr(sys, "_MEIPASS", None)
+        if bundle_dir:
+            candidates.append(Path(bundle_dir) / "graphviz" / executable_name)
+
+        # Allow source launches and custom package layouts to use an explicit
+        # Graphviz installation without requiring a global PATH modification.
+        graphviz_bin = os.environ.get("GRAPHVIZ_BIN")
+        if graphviz_bin:
+            candidates.append(Path(graphviz_bin) / executable_name)
+        graphviz_root = os.environ.get("GRAPHVIZ_ROOT")
+        if graphviz_root:
+            candidates.append(Path(graphviz_root) / "bin" / executable_name)
+
+        if sys.platform == "win32":
+            program_files = [os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")]
+            for root in filter(None, program_files):
+                candidates.append(Path(root) / "Graphviz" / "bin" / executable_name)
+
+        # Finally use the system PATH (normal for Linux/macOS and useful for
+        # developers who installed Graphviz in a non-standard Windows path).
+        system_dot = shutil.which(executable_name)
         if system_dot:
-            return system_dot
-        bundle_dir = Path(getattr(sys, "_MEIPASS", ""))
-        bundled_dot = bundle_dir / "graphviz" / ("dot.exe" if sys.platform == "win32" else "dot")
-        return str(bundled_dot) if bundled_dot.is_file() else None
+            candidates.append(Path(system_dot))
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+        return None
 
     def render_file(self, input_path: str, output_path: str) -> None:
         with open(input_path, encoding="utf-8") as stream:
@@ -216,10 +248,14 @@ class MermaidRenderer:
         if executable is None:
             raise RuntimeError("Graphviz dot executable is unavailable")
         environment = os.environ.copy()
-        if getattr(sys, "_MEIPASS", None):
-            bundle_dir = Path(sys._MEIPASS) / "graphviz"
-            environment["PATH"] = f"{bundle_dir}{os.pathsep}{environment.get('PATH', '')}"
-            environment["GVBINDIR"] = str(bundle_dir / "lib" / "graphviz")
+        executable_path = Path(executable).resolve()
+        graphviz_dir = executable_path.parent
+        environment["PATH"] = f"{graphviz_dir}{os.pathsep}{environment.get('PATH', '')}"
+        # Graphviz looks for its rendering plugins through GVBINDIR.  This is
+        # required for the one-file Windows build, where the runtime is
+        # extracted below _MEIPASS instead of installed system-wide.
+        if getattr(sys, "_MEIPASS", None) and graphviz_dir.name.lower() == "graphviz":
+            environment["GVBINDIR"] = str(graphviz_dir / "lib" / "graphviz")
         result = subprocess.run([executable, "-Tsvg"], input="\n".join(dot), text=True, capture_output=True, check=True, env=environment)
         return result.stdout
 
