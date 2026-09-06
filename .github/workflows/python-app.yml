@@ -35,6 +35,13 @@ jobs:
         shell: pwsh
         run: |
           "PYTHON_EXECUTABLE=$(python -c 'import sys; print(sys.executable)')" >> $env:GITHUB_ENV
+          $pythonRoot = & python -c "import sys; print(sys.base_prefix)"
+          $pythonTcl = Join-Path $pythonRoot 'tcl\tcl8.6'
+          $pythonTk = Join-Path $pythonRoot 'tcl\tk8.6'
+          if (-not (Test-Path (Join-Path $pythonTcl 'init.tcl'))) { throw "Python Tcl runtime was not found in $pythonTcl" }
+          if (-not (Test-Path (Join-Path $pythonTk 'tk.tcl'))) { throw "Python Tk runtime was not found in $pythonTk" }
+          "PYTHON_TCL=$pythonTcl" >> $env:GITHUB_ENV
+          "PYTHON_TK=$pythonTk" >> $env:GITHUB_ENV
 
       - name: Install Cairo native runtime on Windows
         if: runner.os == 'Windows'
@@ -120,6 +127,8 @@ jobs:
           --collect-all cairocffi
           --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
           --add-binary "$env:GRAPHVIZ_STAGE\*;graphviz"
+          --add-data "$env:PYTHON_TCL;_tcl_data"
+          --add-data "$env:PYTHON_TK;_tk_data"
           --add-data "$env:GRAPHVIZ_ROOT\lib\graphviz;graphviz\lib\graphviz"
           --add-data "$env:GRAPHVIZ_ROOT\share\graphviz;graphviz\share\graphviz"
           pymermaid_app.py
