@@ -38,8 +38,13 @@ jobs:
           $pythonRoot = & python -c "import sys; print(sys.base_prefix)"
           $pythonTcl = Join-Path $pythonRoot 'tcl\tcl8.6'
           $pythonTk = Join-Path $pythonRoot 'tcl\tk8.6'
+          $pythonTclDll = Join-Path $pythonRoot 'DLLs\tcl86t.dll'
+          $pythonTkDll = Join-Path $pythonRoot 'DLLs\tk86t.dll'
           if (-not (Test-Path (Join-Path $pythonTcl 'init.tcl'))) { throw "Python Tcl runtime was not found in $pythonTcl" }
           if (-not (Test-Path (Join-Path $pythonTk 'tk.tcl'))) { throw "Python Tk runtime was not found in $pythonTk" }
+          if (-not (Test-Path $pythonTclDll)) { throw "Python Tcl DLL was not found at $pythonTclDll" }
+          if (-not (Test-Path $pythonTkDll)) { throw "Python Tk DLL was not found at $pythonTkDll" }
+          "PYTHON_ROOT=$pythonRoot" >> $env:GITHUB_ENV
           "PYTHON_TCL=$pythonTcl" >> $env:GITHUB_ENV
           "PYTHON_TK=$pythonTk" >> $env:GITHUB_ENV
 
@@ -94,6 +99,20 @@ jobs:
             Copy-Item -Destination $graphvizStage
           "GRAPHVIZ_STAGE=$graphvizStage" >> $env:GITHUB_ENV
 
+      - name: Prepare Cairo runtime for PyInstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Keep the Tcl/Tk DLLs supplied by Python authoritative. Some MSYS2
+          # installations also contain Tcl/Tk DLLs, but their version may not
+          # match the Python interpreter used by PyInstaller.
+          $cairoStage = Join-Path $env:RUNNER_TEMP 'pymermaid-cairo'
+          New-Item -ItemType Directory -Force $cairoStage | Out-Null
+          Get-ChildItem (Join-Path $env:CAIRO_DLL_DIR '*.dll') |
+            Where-Object { $_.Name -notmatch '^(tcl|tk)\d' } |
+            Copy-Item -Destination $cairoStage
+          "CAIRO_STAGE=$cairoStage" >> $env:GITHUB_ENV
+
       - name: Verify Cairo runtime on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -125,7 +144,9 @@ jobs:
           --name PyMermaid
           --collect-all cairosvg
           --collect-all cairocffi
-          --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
+          --add-binary "$env:CAIRO_STAGE\*;."
+          --add-binary "$env:PYTHON_ROOT\DLLs\tcl86t.dll;."
+          --add-binary "$env:PYTHON_ROOT\DLLs\tk86t.dll;."
           --add-binary "$env:GRAPHVIZ_STAGE\*;graphviz"
           --add-data "$env:PYTHON_TCL;python_tcl"
           --add-data "$env:PYTHON_TK;python_tk"
