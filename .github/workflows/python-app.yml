@@ -71,6 +71,22 @@ jobs:
           $dot.DirectoryName >> $env:GITHUB_PATH
           $env:Path = "$($dot.DirectoryName);$env:Path"
 
+      - name: Prepare Graphviz runtime for PyInstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Graphviz ships its own Tcl/Tk DLLs. Including them beside the
+          # application conflicts with the Tcl/Tk version bundled by Python,
+          # causing tkinter to reject init.tcl at startup. Graphviz dot does
+          # not need those DLLs, so stage only its executable and other DLLs.
+          $graphvizStage = Join-Path $env:RUNNER_TEMP 'pymermaid-graphviz'
+          New-Item -ItemType Directory -Force $graphvizStage | Out-Null
+          Copy-Item (Join-Path $env:GRAPHVIZ_BIN 'dot.exe') $graphvizStage
+          Get-ChildItem (Join-Path $env:GRAPHVIZ_BIN '*.dll') |
+            Where-Object { $_.Name -notmatch '^(tcl|tk)\d' } |
+            Copy-Item -Destination $graphvizStage
+          "GRAPHVIZ_STAGE=$graphvizStage" >> $env:GITHUB_ENV
+
       - name: Verify Cairo runtime on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -103,8 +119,7 @@ jobs:
           --collect-all cairosvg
           --collect-all cairocffi
           --add-binary "$env:CAIRO_DLL_DIR\*.dll;."
-          --add-binary "$env:GRAPHVIZ_BIN\dot.exe;graphviz"
-          --add-binary "$env:GRAPHVIZ_BIN\*.dll;graphviz"
+          --add-binary "$env:GRAPHVIZ_STAGE\*;graphviz"
           --add-data "$env:GRAPHVIZ_ROOT\lib\graphviz;graphviz\lib\graphviz"
           --add-data "$env:GRAPHVIZ_ROOT\share\graphviz;graphviz\share\graphviz"
           pymermaid_app.py
