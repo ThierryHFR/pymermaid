@@ -171,6 +171,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force package | Out-Null
           Compress-Archive -Path dist/PyMermaid.exe -DestinationPath "package/PyMermaid-Windows-x64.zip"
+          choco install innosetup --no-progress -y
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss
 
       - name: Package Linux application
         if: runner.os == 'Linux'
@@ -208,8 +210,13 @@ jobs:
         run: |
           mkdir -p package
           ditto -c -k --sequesterRsrc --keepParent \
-            dist/PyMermaid \
+            dist/PyMermaid.app \
             package/PyMermaid-macOS-x64.zip
+          hdiutil create \
+            -volname PyMermaid \
+            -srcfolder dist/PyMermaid.app \
+            -ov -format UDZO \
+            package/PyMermaid-macOS-x64.dmg
 
       - name: Upload package
         uses: actions/upload-artifact@v4
